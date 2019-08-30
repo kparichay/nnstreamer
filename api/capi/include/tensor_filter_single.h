@@ -28,8 +28,8 @@
 #include <stdint.h>
 #include <glib-object.h>
 
-#include "nnstreamer_subplugin.h"
-#include "nnstreamer_plugin_api_filter.h"
+#include <nnstreamer/nnstreamer_subplugin.h>
+#include <nnstreamer/nnstreamer_plugin_api_filter.h>
 
 G_BEGIN_DECLS
 #define G_TYPE_TENSOR_FILTER_SINGLE \
@@ -43,6 +43,7 @@ G_BEGIN_DECLS
 #define G_IS_TENSOR_FILTER_SINGLE_CLASS(klass) \
   (G_TYPE_CHECK_CLASS_TYPE((klass),G_TYPE_TENSOR_FILTER_SINGLE))
 #define G_TENSOR_FILTER_SINGLE_CAST(obj)  ((GTensorFilterSingle *)(obj))
+
 typedef struct _GTensorFilterSingle GTensorFilterSingle;
 typedef struct _GTensorFilterSingleClass GTensorFilterSingleClass;
 
@@ -51,13 +52,14 @@ typedef struct _GTensorFilterSingleClass GTensorFilterSingleClass;
  */
 struct _GTensorFilterSingle
 {
+  GObject element;     /**< This is the parent object */
+
   void *privateData; /**< NNFW plugin's private data is stored here */
   GstTensorFilterProperties prop; /**< NNFW plugin's properties */
   const GstTensorFilterFramework *fw; /**< The implementation core of the NNFW. NULL if not configured */
 
   /* internal properties for tensor_filter_single */
   gboolean silent; /**< Verbose mode if FALSE. int instead of gboolean for non-glib custom plugins */
-  gboolean configured; /**< True if already successfully configured tensor metadata */
   gboolean started; /**< filter has been started */
   GstTensorsConfig in_config; /**< input tensor info */
   GstTensorsConfig out_config; /**< output tensor info */
@@ -72,7 +74,10 @@ struct _GTensorFilterSingleClass
 
 
   /** Invoke the filter for execution */
-  gboolean (*invoke) (GTensorFilterSingle * self, GstTensorMemory * input[], GstTensorMemory * output[]);
+  gboolean (*invoke) (GTensorFilterSingle * self, GstTensorMemory * input, GstTensorMemory * output);
+  gboolean (*start) (GTensorFilterSingle * self);
+  gboolean (*input_configured) (GTensorFilterSingle * self);
+  gboolean (*output_configured) (GTensorFilterSingle * self);
 };
 
 /**
