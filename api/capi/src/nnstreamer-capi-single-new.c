@@ -26,12 +26,14 @@
 
 #include <string.h>
 
-#include "nnstreamer-single.h"
-#include "nnstreamer-capi-private.h"
-#include "nnstreamer_plugin_api.h"
-#include "tensor_filter_single.h"
-#include "nnstreamer/tensor_filter/tensor_filter.h"
+#include <nnstreamer-single.h>
+#include <nnstreamer-capi-private.h>
+#include <nnstreamer_plugin_api.h>
+#include <nnstreamer/tensor_filter/tensor_filter.h>
 
+#include "tensor_filter_single.h"
+
+/* ML single api data structure for handle */
 typedef struct
 {
   GTensorFilterSingle *filter;
@@ -39,8 +41,9 @@ typedef struct
   ml_tensors_info_s out_info;
 } ml_single;
 
-/** TODO: check if we need a lock here */
-
+/**
+ * @brief Set the info for input/output tensors
+ */
 static void
 ml_single_set_inout_tensors_info (GObject *object,
     const gchar *prefix, ml_tensors_info_s *tensors_info)
@@ -73,71 +76,30 @@ ml_single_set_inout_tensors_info (GObject *object,
 }
 
 /**
- * @brief Opens an ML model and returns the instance as a handle.
+ * @brief Check the availability of the nnfw type and model
  */
-int
-ml_single_open (ml_single_h * single, const char *model,
-    const ml_tensors_info_h input_info, const ml_tensors_info_h output_info,
-    ml_nnfw_type_e nnfw, ml_nnfw_hw_e hw)
+static int
+ml_single_check_nnfw (const char *model, ml_nnfw_type_e *nnfw)
 {
-  ml_single *single_h;
-  GObject *filter_obj;
-  int status = ML_ERROR_NONE;
-  GTensorFilterSingleClass *klass;
   gchar *path_down;
-  ml_tensors_info_s *in_tensors_info, *out_tensors_info;
-  bool available = false;
-  bool valid = false;
+  int status = ML_ERROR_NONE;
 
-  check_feature_state ();
-
-  /* Validate the params */
-  if (!single) {
-    ml_loge ("The given param, single is invalid.");
-    return ML_ERROR_INVALID_PARAMETER;
-  }
-
-  /* init null */
-  *single = NULL;
-
-  in_tensors_info = (ml_tensors_info_s *) input_info;
-  out_tensors_info = (ml_tensors_info_s *) output_info;
-
-  if (input_info) {
-    /* Validate input tensor info. */
-    if (ml_tensors_info_validate (input_info, &valid) != ML_ERROR_NONE ||
-        valid == false) {
-      ml_loge ("The given param, input tensor info is invalid.");
-      return ML_ERROR_INVALID_PARAMETER;
-    }
-  }
-
-  if (output_info) {
-    /* Validate output tensor info. */
-    if (ml_tensors_info_validate (output_info, &valid) != ML_ERROR_NONE ||
-        valid == false) {
-      ml_loge ("The given param, output tensor info is invalid.");
-      return ML_ERROR_INVALID_PARAMETER;
-    }
-  }
-
-  /* 1. Determine nnfw */
   /* Check file extention. */
   path_down = g_ascii_strdown (model, -1);
 
-  switch (nnfw) {
+  switch (*nnfw) {
     case ML_NNFW_TYPE_ANY:
       if (g_str_has_suffix (path_down, ".tflite")) {
         ml_logi ("The given model [%s] is supposed a tensorflow-lite model.",
             model);
-        nnfw = ML_NNFW_TYPE_TENSORFLOW_LITE;
+        *nnfw = ML_NNFW_TYPE_TENSORFLOW_LITE;
       } else if (g_str_has_suffix (path_down, ".pb")) {
         ml_logi ("The given model [%s] is supposed a tensorflow model.", model);
-        nnfw = ML_NNFW_TYPE_TENSORFLOW;
+        *nnfw = ML_NNFW_TYPE_TENSORFLOW;
       } else if (!g_str_has_suffix (path_down, ".so")) {
         ml_logi ("The given model [%s] is supposed a custom filter model.",
             model);
-        nnfw = ML_NNFW_TYPE_CUSTOM_FILTER;
+        *nnfw = ML_NNFW_TYPE_CUSTOM_FILTER;
       } else {
         ml_loge ("The given model [%s] has unknown extension.", model);
         status = ML_ERROR_INVALID_PARAMETER;
@@ -177,11 +139,71 @@ ml_single_open (ml_single_h * single, const char *model,
   if (!g_file_test (model, G_FILE_TEST_IS_REGULAR)) {
     ml_loge ("The given param, model path [%s] is invalid.",
         GST_STR_NULL (model));
+    status = ML_ERROR_INVALID_PARAMETER;
+  }
+
+  return status;
+}
+
+/**
+ * @brief Opens an ML model and returns the instance as a handle.
+ */
+int
+ml_single_open (ml_single_h * single, const char *model,
+    const ml_tensors_info_h input_info, const ml_tensors_info_h output_info,
+    ml_nnfw_type_e nnfw, ml_nnfw_hw_e hw)
+{
+  ml_single *single_h;
+  GObject *filter_obj;
+  int status = ML_ERROR_NONE;
+  GTensorFilterSingleClass *klass;
+  ml_tensors_info_s *in_tensors_info, *out_tensors_info;
+  bool available = false;
+  bool valid = false;
+
+  check_feature_state ();
+
+  /* Validate the params */
+  if (!single) {
+    ml_loge ("The given param, single is invalid.");
     return ML_ERROR_INVALID_PARAMETER;
   }
 
-  /* 2. Determine hw */
-  /** @todo Now the param hw is ignored. (Supposed CPU only) Support others later. */
+  /* init null */
+  *single = NULL;
+
+  in_tensors_info = (ml_tensors_info_s *) input_info;
+  out_tensors_info = (ml_tensors_info_s *) output_info;
+
+  if (input_info) {
+    /* Validate input tensor info. */
+    if (ml_tensors_info_validate (input_info, &valid) != ML_ERROR_NONE ||
+        valid == false) {
+      ml_loge ("The given param, input tensor info is invalid.");
+      return ML_ERROR_INVALID_PARAMETER;
+    }
+  }
+
+  if (output_info) {
+    /* Validate output tensor info. */
+    if (ml_tensors_info_validate (output_info, &valid) != ML_ERROR_NONE ||
+        valid == false) {
+      ml_loge ("The given param, output tensor info is invalid.");
+      return ML_ERROR_INVALID_PARAMETER;
+    }
+  }
+
+  /**
+   * 1. Determine nnfw
+   */
+  if ((status = ml_single_check_nnfw (model, &nnfw)) != ML_ERROR_NONE)
+    return status;
+
+  /**
+   * 2. Determine hw
+   * @todo Now the param hw is ignored.
+   * (Supposed CPU only) Support others later.
+   */
   status = ml_check_nnfw_availability (nnfw, hw, &available);
   if (status != ML_ERROR_NONE)
     return status;
@@ -200,10 +222,12 @@ ml_single_open (ml_single_h * single, const char *model,
     status = ML_ERROR_INVALID_PARAMETER;
     goto error;
   }
-
-  /* 3. Construct a pipeline */
-  /* Set the pipeline desc with nnfw. */
   filter_obj = G_OBJECT (single_h->filter);
+
+  /**
+   * 3. Construct a pipeline
+   * Set the pipeline desc with nnfw.
+   */
   switch (nnfw) {
     case ML_NNFW_TYPE_CUSTOM_FILTER:
       g_object_set (filter_obj, "framework", "custom",
@@ -223,7 +247,8 @@ ml_single_open (ml_single_h * single, const char *model,
         g_object_set (filter_obj, "framework", "tensorflow",
             "model", model, NULL);
       } else {
-        ml_loge ("To run the pipeline with tensorflow model, input and output information should be initialized.");
+        ml_loge ("To run the pipeline with tensorflow model, \
+            input and output information should be initialized.");
         status = ML_ERROR_INVALID_PARAMETER;
         goto error;
       }
@@ -239,21 +264,27 @@ ml_single_open (ml_single_h * single, const char *model,
   ml_tensors_info_initialize (&single_h->in_info);
   ml_tensors_info_initialize (&single_h->out_info);
 
+  /* 5. Start the nnfw to egt inout configurations if needed */
   klass = g_type_class_peek (G_TYPE_TENSOR_FILTER_SINGLE);
-  if (!klass)
-    return ML_ERROR_INVALID_PARAMETER;
-
+  if (!klass) {
+    status = ML_ERROR_INVALID_PARAMETER;
+    goto error;
+  }
   status = klass->start (single_h->filter);
-  if (status == FALSE)
-    return ML_ERROR_INVALID_PARAMETER;
+  if (status == FALSE) {
+    status = ML_ERROR_INVALID_PARAMETER;
+    goto error;
+  }
 
-  /* 5. Set in/out caps and metadata */
+  /* 6. Set in/out configs and metadata */
   if (in_tensors_info) {
-    /** set the tensors info here, already set for TENSORFLOW */
+    /** set the tensors info here */
     if (!klass->input_configured(single_h->filter))
       ml_single_set_inout_tensors_info (filter_obj, "input",
           in_tensors_info);
-    ml_tensors_info_clone (&single_h->in_info, in_tensors_info);
+    status = ml_tensors_info_clone (&single_h->in_info, in_tensors_info);
+    if (status != ML_ERROR_NONE)
+      goto error;
   } else {
     ml_tensors_info_h in_info;
 
@@ -275,11 +306,13 @@ ml_single_open (ml_single_h * single, const char *model,
 
 
   if (out_tensors_info) {
-    /** set the tensors info here, already set for TENSORFLOW */
+    /** set the tensors info here */
     if (!klass->output_configured(single_h->filter))
       ml_single_set_inout_tensors_info (filter_obj, "output",
           out_tensors_info);
-    ml_tensors_info_clone (&single_h->out_info, out_tensors_info);
+    status = ml_tensors_info_clone (&single_h->out_info, out_tensors_info);
+    if (status != ML_ERROR_NONE)
+      goto error;
   } else {
     ml_tensors_info_h out_info;
 
@@ -325,6 +358,10 @@ ml_single_close (ml_single_h single)
   single_h = (ml_single *) single;
 
   if (single_h->filter) {
+    GTensorFilterSingleClass *klass;
+    klass = g_type_class_peek (G_TYPE_TENSOR_FILTER_SINGLE);
+    if (klass)
+      klass->stop (single_h->filter);
     gst_object_unref (single_h->filter);
     single_h->filter = NULL;
   }
@@ -367,7 +404,8 @@ ml_single_invoke (ml_single_h single,
 
   /* Validate input data */
   if (in_data->num_tensors != single_h->in_info.num_tensors) {
-    ml_loge ("The given param input is invalid, different number of memory blocks.");
+    ml_loge ("The given param input is invalid, \
+        different number of memory blocks.");
     return ML_ERROR_INVALID_PARAMETER;
   }
 
@@ -375,7 +413,8 @@ ml_single_invoke (ml_single_h single,
     size_t raw_size = ml_tensor_info_get_size (&single_h->in_info.info[i]);
 
     if (!in_data->tensors[i].tensor || in_data->tensors[i].size != raw_size) {
-      ml_loge ("The given param input is invalid, different size of memory block.");
+      ml_loge ("The given param input is invalid, \
+          different size of memory block.");
       return ML_ERROR_INVALID_PARAMETER;
     }
   }
@@ -397,14 +436,14 @@ ml_single_invoke (ml_single_h single,
 
   klass = g_type_class_peek (G_TYPE_TENSOR_FILTER_SINGLE);
   if (!klass)
-    return ML_ERROR_INVALID_PARAMETER;
+    return ML_ERROR_PERMISSION_DENIED;
 
   status = klass->invoke (single_h->filter, in_tensors, out_tensors);
   if (!status)
     return ML_ERROR_INVALID_PARAMETER;
 
   /* Allocate output buffer */
-  status = ml_tensors_data_create (&single_h->out_info, output);
+  status = ml_tensors_data_create_no_alloc (&single_h->out_info, output);
   if (status != ML_ERROR_NONE) {
     ml_loge ("Failed to allocate the memory block.");
     *output = NULL;
@@ -422,7 +461,8 @@ ml_single_invoke (ml_single_h single,
 }
 
 /**
- * @brief Gets the type (tensor dimension, type, name and so on) of required input data for the given handle.
+ * @brief Gets the type of required input data for the given handle.
+ * @note type = (tensor dimension, type, name and so on)
  */
 int
 ml_single_get_input_info (ml_single_h single, ml_tensors_info_h * info)
@@ -475,7 +515,8 @@ ml_single_get_input_info (ml_single_h single, ml_tensors_info_h * info)
 }
 
 /**
- * @brief Gets the type (tensor dimension, type, name and so on) of output data for the given handle.
+ * @brief Gets the type of required output data for the given handle.
+ * @note type = (tensor dimension, type, name and so on)
  */
 int
 ml_single_get_output_info (ml_single_h single, ml_tensors_info_h * info)

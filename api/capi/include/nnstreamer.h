@@ -708,6 +708,18 @@ int ml_tensors_info_get_tensor_dimension (ml_tensors_info_h info, unsigned int i
 size_t ml_tensors_info_get_size (const ml_tensors_info_h info);
 
 /**
+ * @brief Creates a tensor data frame wihout buffer with the given tensors information.
+ * @since_tizen 5.5
+ * @param[in] info The handle of tensors information for the allocation.
+ * @param[out] data The handle of tensors data.
+ * @return @c 0 on success. Otherwise a negative error value.
+ * @retval #ML_ERROR_NONE Successful
+ * @retval #ML_ERROR_NOT_SUPPORTED Not supported.
+ * @retval #ML_ERROR_INVALID_PARAMETER Given parameter is invalid.
+ */
+int ml_tensors_data_create_no_alloc (const ml_tensors_info_h info, ml_tensors_data_h *data);
+
+/**
  * @brief Creates a tensor data frame with the given tensors information.
  * @since_tizen 5.5
  * @param[in] info The handle of tensors information for the allocation.

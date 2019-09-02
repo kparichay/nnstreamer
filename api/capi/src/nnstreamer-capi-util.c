@@ -493,6 +493,41 @@ ml_tensors_data_destroy (ml_tensors_data_h data)
 
 /**
  * @brief Allocates a tensor data frame with the given tensors info. (more info in nnstreamer.h)
+ * @note Memory for data buffer is not allocated.
+ */
+int
+ml_tensors_data_create_no_alloc (const ml_tensors_info_h info,
+    ml_tensors_data_h * data)
+{
+  ml_tensors_data_s *_data;
+  ml_tensors_info_s *tensors_info;
+  gint i;
+
+  check_feature_state ();
+
+  if (!info || !data)
+    return ML_ERROR_INVALID_PARAMETER;
+
+  tensors_info = (ml_tensors_info_s *) info;
+  *data = NULL;
+
+  _data = g_new0 (ml_tensors_data_s, 1);
+  if (!_data) {
+    ml_loge ("Failed to allocate the memory block.");
+    return ML_ERROR_STREAMS_PIPE;
+  }
+
+  _data->num_tensors = tensors_info->num_tensors;
+  for (i = 0; i < _data->num_tensors; i++) {
+    _data->tensors[i].size = ml_tensor_info_get_size (&tensors_info->info[i]);
+  }
+
+  *data = _data;
+  return ML_ERROR_NONE;
+}
+
+/**
+ * @brief Allocates a tensor data frame with the given tensors info. (more info in nnstreamer.h)
  */
 int
 ml_tensors_data_create (const ml_tensors_info_h info,

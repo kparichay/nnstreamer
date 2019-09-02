@@ -45,6 +45,8 @@
 
 #include <nnstreamer/nnstreamer_plugin_api.h>
 #include <nnstreamer/tensor_typedef.h>
+#include <nnstreamer/tensor_filter/tensor_filter_common.h>
+
 #include "tensor_filter_single.h"
 
 /**
@@ -53,8 +55,6 @@
 #ifndef DBG
 #define DBG (!self->silent)
 #endif
-
-#define g_free_const(x) g_free((void*)(long)(x))
 
 #define silent_debug_info(i,msg) do { \
   if (DBG) { \
@@ -68,202 +68,6 @@
     } \
   } \
 } while (0)
-
-/**
- * @brief Validate filter sub-plugin's data.
- */
-static gboolean
-nnstreamer_filter_validate (const GstTensorFilterFramework * tfsp)
-{
-  if (!tfsp || !tfsp->name) {
-    /* invalid fw name */
-    return FALSE;
-  }
-
-  if (!tfsp->invoke_NN) {
-    /* no invoke function */
-    return FALSE;
-  }
-
-  if (!(tfsp->getInputDimension && tfsp->getOutputDimension) &&
-      !tfsp->setInputDimension) {
-    /* no method to get tensor info */
-    return FALSE;
-  }
-
-  return TRUE;
-}
-
-/**
- * @brief Filter's sub-plugin should call this function to register itself.
- * @param[in] tfsp Tensor-Filter Sub-Plugin to be registered.
- * @return TRUE if registered. FALSE is failed or duplicated.
- */
-int
-nnstreamer_filter_probe (GstTensorFilterFramework * tfsp)
-{
-  g_return_val_if_fail (nnstreamer_filter_validate (tfsp), FALSE);
-  return register_subplugin (NNS_SUBPLUGIN_FILTER, tfsp->name, tfsp);
-}
-
-/**
- * @brief Filter's sub-plugin may call this to unregister itself.
- * @param[in] name The name of filter sub-plugin.
- */
-void
-nnstreamer_filter_exit (const char *name)
-{
-  unregister_subplugin (NNS_SUBPLUGIN_FILTER, name);
-}
-
-/**
- * @brief Find filter sub-plugin with the name.
- * @param[in] name The name of filter sub-plugin.
- * @return NULL if not found or the sub-plugin object has an error.
- */
-const GstTensorFilterFramework *
-nnstreamer_filter_find (const char *name)
-{
-  return get_subplugin (NNS_SUBPLUGIN_FILTER, name);
-}
-
-
-/**
- * @brief Parse the string of model
- * @param info tensors info structure
- * @param model_file the prediction model path
- * @param model_file_sub the initialize model path
- * @return number of parsed model path
- * @todo Create a struct list to save multiple model files with key, value pair
- */
-static guint
-gst_tensors_parse_modelpaths_string (GstTensorFilterProperties * prop,
-    const gchar * model_files)
-{
-  gchar **models;
-  gchar **model_0;
-  gchar **model_1;
-  guint num_models = 0;
-  guint num_model_0 = 0;
-  guint num_model_1 = 0;
-
-  g_return_val_if_fail (prop != NULL, 0);
-
-  if (model_files) {
-    models = g_strsplit_set (model_files, ",", -1);
-    num_models = g_strv_length (models);
-
-    if (num_models == 1) {
-      prop->model_file = g_strdup (models[0]);
-    } else if (num_models == 2) {
-      model_0 = g_strsplit_set (models[0], "=", -1);
-      model_1 = g_strsplit_set (models[1], "=", -1);
-
-      num_model_0 = g_strv_length (model_0);
-      num_model_1 = g_strv_length (model_1);
-
-      if (num_model_0 == 1 && num_model_1 == 1) {
-        prop->model_file_sub = g_strdup (model_0[0]);
-        prop->model_file = g_strdup (model_1[0]);
-      } else if (g_ascii_strncasecmp (model_0[0], "init", 4) == 0 ||
-          g_ascii_strncasecmp (model_0[0], "Init", 4) == 0) {
-        prop->model_file_sub = g_strdup (model_0[1]);
-
-        if (num_model_1 == 2)
-          prop->model_file = g_strdup (model_1[1]);
-        else
-          prop->model_file = g_strdup (model_1[0]);
-      } else if (g_ascii_strncasecmp (model_0[0], "pred", 4) == 0 ||
-          g_ascii_strncasecmp (model_0[0], "Pred", 4) == 0) {
-        prop->model_file = g_strdup (model_0[1]);
-
-        if (num_model_1 == 2)
-          prop->model_file_sub = g_strdup (model_1[1]);
-        else
-          prop->model_file_sub = g_strdup (model_1[0]);
-      } else if (g_ascii_strncasecmp (model_1[0], "init", 4) == 0 ||
-          g_ascii_strncasecmp (model_1[0], "Init", 4) == 0) {
-        prop->model_file_sub = g_strdup (model_1[1]);
-
-        if (num_model_0 == 2)
-          prop->model_file = g_strdup (model_0[1]);
-        else
-          prop->model_file = g_strdup (model_0[0]);
-      } else if (g_ascii_strncasecmp (model_1[0], "pred", 4) == 0 ||
-          g_ascii_strncasecmp (model_1[0], "Pred", 4) == 0) {
-        prop->model_file = g_strdup (model_1[1]);
-
-        if (num_model_0 == 2)
-          prop->model_file_sub = g_strdup (model_0[1]);
-        else
-          prop->model_file_sub = g_strdup (model_0[0]);
-      }
-      g_strfreev (model_0);
-      g_strfreev (model_1);
-    }
-    g_strfreev (models);
-  }
-  return num_models;
-}
-
-/**
- * @brief Open nn framework.
- */
-#define gst_tensor_filter_open_fw(filter) do { \
-      if (filter->prop.fw_opened == FALSE && filter->fw) { \
-        if (filter->fw->open != NULL) {\
-          if (filter->fw->open (&filter->prop, &filter->privateData) == 0) \
-            filter->prop.fw_opened = TRUE; \
-        } else {\
-          filter->prop.fw_opened = TRUE; \
-        } \
-      } \
-    } while (0)
-
-/**
- * @brief Close nn framework.
- */
-#define gst_tensor_filter_close_fw(filter) do { \
-      if (filter->prop.fw_opened) { \
-        if (filter->fw && filter->fw->close) \
-          filter->fw->close (&filter->prop, &filter->privateData); \
-        filter->prop.fw_opened = FALSE; \
-        g_free_const (filter->prop.fwname); \
-        filter->prop.fwname = NULL; \
-        filter->fw = NULL; \
-        filter->privateData = NULL; \
-      } \
-    } while (0)
-
-/**
- * @brief Invoke callbacks of nn framework. Guarantees calling open for the first call.
- */
-#define gst_tensor_filter_call(filter,ret,funcname,...) do { \
-      gst_tensor_filter_open_fw (filter); \
-      ret = -1; \
-      if (filter->prop.fw_opened && filter->fw && filter->fw->funcname) { \
-        ret = filter->fw->funcname (&filter->prop, &filter->privateData, __VA_ARGS__); \
-      } \
-    } while (0)
-
-/**
- * @brief GTensorFilter properties.
- */
-enum
-{
-  PROP_0,
-  PROP_SILENT,
-  PROP_FRAMEWORK,
-  PROP_MODEL,
-  PROP_INPUT,
-  PROP_INPUTTYPE,
-  PROP_INPUTNAME,
-  PROP_OUTPUT,
-  PROP_OUTPUTTYPE,
-  PROP_OUTPUTNAME,
-  PROP_CUSTOM,
-  PROP_SUBPLUGINS
-};
 
 #define g_tensor_filter_single_parent_class parent_class
 G_DEFINE_TYPE (GTensorFilterSingle, g_tensor_filter_single, G_TYPE_OBJECT);
@@ -299,52 +103,11 @@ g_tensor_filter_single_class_init (GTensorFilterSingleClass * klass)
   gobject_class->get_property = g_tensor_filter_single_get_property;
   gobject_class->finalize = g_tensor_filter_single_finalize;
 
-  g_object_class_install_property (gobject_class, PROP_SILENT,
-      g_param_spec_boolean ("silent", "Silent", "Produce verbose output",
-          FALSE, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-  g_object_class_install_property (gobject_class, PROP_FRAMEWORK,
-      g_param_spec_string ("framework", "Framework",
-          "Neural network framework", "",
-          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-  g_object_class_install_property (gobject_class, PROP_MODEL,
-      g_param_spec_string ("model", "Model filepath",
-          "File path to the model file. Separated with \
-          ',' in case of multiple model files(like caffe2)", "", G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-  g_object_class_install_property (gobject_class, PROP_INPUT,
-      g_param_spec_string ("input", "Input dimension",
-          "Input tensor dimension from inner array, up to 4 dimensions ?", "",
-          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-  g_object_class_install_property (gobject_class, PROP_INPUTNAME,
-      g_param_spec_string ("inputname", "Name of Input Tensor",
-          "The Name of Input Tensor", "",
-          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-  g_object_class_install_property (gobject_class, PROP_INPUTTYPE,
-      g_param_spec_string ("inputtype", "Input tensor element type",
-          "Type of each element of the input tensor ?", "",
-          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-  g_object_class_install_property (gobject_class, PROP_OUTPUTNAME,
-      g_param_spec_string ("outputname", "Name of Output Tensor",
-          "The Name of Output Tensor", "",
-          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-  g_object_class_install_property (gobject_class, PROP_OUTPUT,
-      g_param_spec_string ("output", "Output dimension",
-          "Output tensor dimension from inner array, up to 4 dimensions ?", "",
-          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-  g_object_class_install_property (gobject_class, PROP_OUTPUTTYPE,
-      g_param_spec_string ("outputtype", "Output tensor element type",
-          "Type of each element of the output tensor ?", "",
-          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-  g_object_class_install_property (gobject_class, PROP_CUSTOM,
-      g_param_spec_string ("custom", "Custom properties for subplugins",
-          "Custom properties for subplugins ?", "",
-          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-  g_object_class_install_property (gobject_class, PROP_SUBPLUGINS,
-      g_param_spec_string ("sub-plugins", "Sub-plugins",
-          "Registrable sub-plugins list", "",
-          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+  gst_tensor_filter_install_properties (gobject_class);
 
   klass->invoke = g_tensor_filter_single_invoke;
   klass->start = g_tensor_filter_single_start;
+  klass->stop = g_tensor_filter_single_stop;
   klass->input_configured = g_tensor_filter_input_configured;
   klass->output_configured = g_tensor_filter_output_configured;
 }
@@ -473,7 +236,6 @@ g_tensor_filter_single_set_property (GObject * object, guint prop_id,
       }
 
       /* Once configures, it cannot be changed in runtime */
-      /** @todo by using `gst_element_get_state()`, reject configurations in RUNNING or other states */
       g_assert (model_files);
       model_num = gst_tensors_parse_modelpaths_string (prop, model_files);
       if (model_num == 1) {
@@ -641,183 +403,10 @@ g_tensor_filter_single_get_property (GObject * object, guint prop_id,
     case PROP_SILENT:
       g_value_set_boolean (value, self->silent);
       break;
-    case PROP_FRAMEWORK:
-      g_value_set_string (value, prop->fwname);
-      break;
-    case PROP_MODEL:
-      g_value_set_string (value, prop->model_file);
-      break;
-    case PROP_INPUT:
-      if (prop->input_meta.num_tensors > 0) {
-        gchar *dim_str;
-
-        dim_str = gst_tensors_info_get_dimensions_string (&prop->input_meta);
-
-        g_value_set_string (value, dim_str);
-        g_free (dim_str);
-      } else {
-        g_value_set_string (value, "");
-      }
-      break;
-    case PROP_OUTPUT:
-      if (prop->output_meta.num_tensors > 0) {
-        gchar *dim_str;
-
-        dim_str = gst_tensors_info_get_dimensions_string (&prop->output_meta);
-
-        g_value_set_string (value, dim_str);
-        g_free (dim_str);
-      } else {
-        g_value_set_string (value, "");
-      }
-      break;
-    case PROP_INPUTTYPE:
-      if (prop->input_meta.num_tensors > 0) {
-        gchar *type_str;
-
-        type_str = gst_tensors_info_get_types_string (&prop->input_meta);
-
-        g_value_set_string (value, type_str);
-        g_free (type_str);
-      } else {
-        g_value_set_string (value, "");
-      }
-      break;
-    case PROP_OUTPUTTYPE:
-      if (prop->output_meta.num_tensors > 0) {
-        gchar *type_str;
-
-        type_str = gst_tensors_info_get_types_string (&prop->output_meta);
-
-        g_value_set_string (value, type_str);
-        g_free (type_str);
-      } else {
-        g_value_set_string (value, "");
-      }
-      break;
-    case PROP_INPUTNAME:
-      if (prop->input_meta.num_tensors > 0) {
-        gchar *name_str;
-
-        name_str = gst_tensors_info_get_names_string (&prop->input_meta);
-
-        g_value_set_string (value, name_str);
-        g_free (name_str);
-      } else {
-        g_value_set_string (value, "");
-      }
-      break;
-    case PROP_OUTPUTNAME:
-      if (prop->output_meta.num_tensors > 0) {
-        gchar *name_str;
-
-        name_str = gst_tensors_info_get_names_string (&prop->output_meta);
-
-        g_value_set_string (value, name_str);
-        g_free (name_str);
-      } else {
-        g_value_set_string (value, "");
-      }
-      break;
-    case PROP_CUSTOM:
-      g_value_set_string (value, prop->custom_properties);
-      break;
-    case PROP_SUBPLUGINS:
-    {
-      GString *subplugins;
-      subplugin_info_s sinfo;
-      guint i, total;
-
-      subplugins = g_string_new (NULL);
-
-      /* add custom */
-      g_string_append (subplugins, "custom");
-
-      total = nnsconf_get_subplugin_info (NNSCONF_PATH_FILTERS, &sinfo);
-
-      if (total > 0) {
-        const gchar *prefix_str;
-        gsize prefix, len;
-
-        prefix_str = nnsconf_get_subplugin_name_prefix (NNSCONF_PATH_FILTERS);
-        prefix = strlen (prefix_str);
-
-        for (i = 0; i < total; ++i) {
-          g_string_append (subplugins, ",");
-
-          /* supposed .so files only */
-          len = strlen (sinfo.names[i]) - prefix - 3;
-          g_string_append_len (subplugins, sinfo.names[i] + prefix, len);
-        }
-      }
-
-      g_value_take_string (value, g_string_free (subplugins, FALSE));
-      break;
-    }
     default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+      if (!gst_tensor_filter_common_get_property (prop, prop_id, value, pspec))
+        G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
-  }
-}
-
-/**
- * @brief Printout the comparison results of two tensors.
- * @param[in] info1 The tensors to be shown on the left hand side
- * @param[in] info2 The tensors to be shown on the right hand side
- * @todo If this is going to be used by other elements, move this to nnstreamer/tensor_common.
- */
-static void
-gst_tensor_filter_compare_tensors (GstTensorsInfo * info1,
-    GstTensorsInfo * info2)
-{
-  gchar *result = NULL;
-  gchar *line, *tmp, *left, *right;
-  guint i;
-
-  for (i = 0; i < NNS_TENSOR_SIZE_LIMIT; i++) {
-    if (info1->num_tensors <= i && info2->num_tensors <= i)
-      break;
-
-    if (info1->num_tensors > i) {
-      tmp = gst_tensor_get_dimension_string (info1->info[i].dimension);
-      left = g_strdup_printf ("%s [%s]",
-          gst_tensor_get_type_string (info1->info[i].type), tmp);
-      g_free (tmp);
-    } else {
-      left = g_strdup ("None");
-    }
-
-    if (info2->num_tensors > i) {
-      tmp = gst_tensor_get_dimension_string (info2->info[i].dimension);
-      right = g_strdup_printf ("%s [%s]",
-          gst_tensor_get_type_string (info2->info[i].type), tmp);
-      g_free (tmp);
-    } else {
-      right = g_strdup ("None");
-    }
-
-    line =
-        g_strdup_printf ("%2d : %s | %s %s\n", i, left, right,
-        g_str_equal (left, right) ? "" : "FAILED");
-
-    g_free (left);
-    g_free (right);
-
-    if (result) {
-      tmp = g_strdup_printf ("%s%s", result, line);
-      g_free (result);
-      g_free (line);
-
-      result = tmp;
-    } else {
-      result = line;
-    }
-  }
-
-  if (result) {
-    /* print warning message */
-    g_warning ("Tensor info :\n%s", result);
-    g_free (result);
   }
 }
 
@@ -856,7 +445,7 @@ g_tensor_filter_load_tensor_info (GTensorFilterSingle * self)
 {
   GstTensorFilterProperties *prop;
   GstTensorsInfo in_info, out_info;
-  int res;
+  int res = -1;
 
   prop = &self->prop;
 
@@ -865,7 +454,11 @@ g_tensor_filter_load_tensor_info (GTensorFilterSingle * self)
 
   /* supposed fixed in-tensor info if getInputDimension is defined. */
   if (!prop->input_configured) {
-    gst_tensor_filter_call (self, res, getInputDimension, &in_info);
+    res = -1;
+    if (self->prop.fw_opened && self->fw && self->fw->getInputDimension) {
+      res = self->fw->getInputDimension
+        (&self->prop, &self->privateData, &in_info);
+    }
 
     if (res == 0) {
       g_assert (in_info.num_tensors > 0);
@@ -888,7 +481,11 @@ g_tensor_filter_load_tensor_info (GTensorFilterSingle * self)
 
   /* supposed fixed out-tensor info if getOutputDimension is defined. */
   if (!prop->output_configured) {
-    gst_tensor_filter_call (self, res, getOutputDimension, &out_info);
+    res = -1;
+    if (self->prop.fw_opened && self->fw && self->fw->getOutputDimension) {
+      res = self->fw->getOutputDimension
+        (&self->prop, &self->privateData, &out_info);
+    }
 
     if (res == 0) {
       g_assert (out_info.num_tensors > 0);

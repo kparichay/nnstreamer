@@ -73,10 +73,15 @@ struct _GTensorFilterSingleClass
   GObjectClass parent; /**< inherits GObjectClass */
 
 
-  /** Invoke the filter for execution */
+  /** Invoke the filter for execution. */
   gboolean (*invoke) (GTensorFilterSingle * self, GstTensorMemory * input, GstTensorMemory * output);
+  /** Start the filter, must be called before invoke. */
   gboolean (*start) (GTensorFilterSingle * self);
+  /** Stop the filter.*/
+  gboolean (*stop) (GTensorFilterSingle * self);
+  /** Check if the input is already configured */
   gboolean (*input_configured) (GTensorFilterSingle * self);
+  /** Check if the output is already configured */
   gboolean (*output_configured) (GTensorFilterSingle * self);
 };
 
