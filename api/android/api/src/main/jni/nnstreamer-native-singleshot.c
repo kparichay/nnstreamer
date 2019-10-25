@@ -212,3 +212,39 @@ Java_org_nnsuite_nnstreamer_SingleShot_nativeSetTimeout (JNIEnv * env, jobject t
   nns_logi ("Successfully set the timeout, %d milliseconds.", timeout);
   return JNI_TRUE;
 }
+
+/**
+ * @brief Native method for single-shot API.
+ */
+jboolean
+Java_org_nnsuite_nnstreamer_SingleShot_nativeSetInputInfo (JNIEnv * env,
+    jobject thiz, jlong handle, jobject in)
+{
+  pipeline_info_s *pipe_info;
+  ml_single_h single;
+  ml_tensors_info_h in_info = NULL;
+  jboolean ret = JNI_FALSE;
+
+  pipe_info = CAST_TO_TYPE (handle, pipeline_info_s*);
+  single = pipe_info->pipeline_handle;
+
+  if (ml_tensors_info_create (&in_info) != ML_ERROR_NONE)
+    return JNI_FALSE;
+
+  if (nns_parse_tensors_info (pipe_info, env, in,
+        (ml_tensors_info_s *) in_info) == FALSE)
+    goto done;
+
+
+  if (ml_single_set_input_info (single, in_info) != ML_ERROR_NONE) {
+    nns_loge ("Failed to set input info.");
+    goto done;
+  }
+
+  ret = JNI_TRUE;
+
+done:
+  ml_tensors_info_destroy (in_info);
+
+  return ret;
+}

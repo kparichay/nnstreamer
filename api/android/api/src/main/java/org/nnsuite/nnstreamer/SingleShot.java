@@ -39,6 +39,7 @@ public final class SingleShot implements AutoCloseable {
     private native TensorsData nativeInvoke(long handle, TensorsData in);
     private native TensorsInfo nativeGetInputInfo(long handle);
     private native TensorsInfo nativeGetOutputInfo(long handle);
+    private native boolean nativeSetInputInfo(long handle, TensorsInfo in);
     private native boolean nativeSetTimeout(long handle, int timeout);
 
     /**
@@ -83,30 +84,55 @@ public final class SingleShot implements AutoCloseable {
 
     /**
      * Invokes the model with the given input data.
-     * Even if the model has flexible input data dimensions,
-     * input data frames of an instance of a model should share the same dimension.
+     * If the model has flexible input data dimensions, input information for this
+     * run of the model can be passed. This changes the currently set input information
+     * for this instance of the model. The corresponding output information can be
+     * extracted.
      *
      * Note that this has a default timeout of 3 seconds.
      * If an application wants to change the time to wait for an output,
      * set the timeout using {@link #setTimeout(int)}.
      *
      * @param in The input data to be inferred (a single frame, tensor/tensors)
+     * @param inInfo The input tensors information
+     * @param outInfo The container for output tensors information
      *
      * @return The output data (a single frame, tensor/tensors)
      *
      * @throws IllegalStateException if failed to invoke the model
      * @throws IllegalArgumentException if given param is null
      */
-    public TensorsData invoke(@NonNull TensorsData in) {
+    public TensorsData invoke(@NonNull TensorsData in, @Nullable TensorsInfo inInfo, @Nullable TensorsInfo outInfo) {
         checkPipelineHandle();
+        TensorsInfo curInfo;
+        TensorsData out;
 
         if (in == null) {
             throw new IllegalArgumentException("Input tensor data is null");
         }
 
-        TensorsData out = nativeInvoke(mHandle, in);
-        if (out == null) {
-            throw new IllegalStateException("Failed to invoke the model");
+        if (inInfo != null) {
+            curInfo = getInputInfo();
+            setInputInfo(inInfo);
+        }
+
+        try {
+            if (outInfo != null) {
+                outInfo = getOutputInfo();
+            }
+
+            out = nativeInvoke(mHandle, in);
+            if (out == null) {
+                throw new IllegalStateException("Failed to invoke the model");
+            }
+        } catch(Exception e) {
+            try {
+                if (info != null) {
+                    setInputInfo(curInfo);
+                }
+            } finally {
+                throw e;
+            }
         }
 
         return out;
@@ -165,6 +191,27 @@ public final class SingleShot implements AutoCloseable {
 
         if (!nativeSetTimeout(mHandle, timeout)) {
             throw new IllegalStateException("Failed to set the timeout");
+        }
+    }
+
+    /**
+     * Sets the information (tensor dimension, type, name and so on) of input data for the given model.
+     * Updates the output information for the model internally.
+     *
+     * @param in The input tensors information
+     *
+     * @throws IllegalStateException if failed to set the input information
+     * @throws IllegalArgumentException if given param is null
+     */
+    public void setInputInfo(@NonNull TensorsInfo in) {
+        checkPipelineHandle();
+
+        if (in == null) {
+            throw new IllegalArgumentException("Input tensor data is null");
+        }
+
+        if (!nativeSetInputInfo(mHandle, in)) {
+            throw new IllegalStateException("Failed to set input tensor info");
         }
     }
 
