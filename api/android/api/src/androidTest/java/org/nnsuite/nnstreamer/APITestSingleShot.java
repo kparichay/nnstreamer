@@ -96,6 +96,38 @@ public class APITestSingleShot {
     }
 
     @Test
+    public void testInvokeDynamic() {
+        String root = Environment.getExternalStorageDirectory().getAbsolutePath();
+        File model = new File(root + "/nnstreamer/test/add.tflite");
+
+        if (!model.exists()) {
+            fail();
+        }
+
+        SingleShot addSingle = new SingleShot(model);
+
+        try {
+            TensorsInfo info = mSingle.getOutputInfo();
+            assertArrayEquals(new int[]{1001,1,1,1}, info.getTensorDimension(0));
+
+            /* single-shot invoke */
+            for (int i = 0; i < 600; i++) {
+                /* dummy input */
+                TensorsData in = TensorsData.allocate(info);
+                TensorsData out = mSingle.invoke(in);
+
+                /* output: uint8 1001:1:1:1 */
+                assertEquals(1, out.getTensorsCount());
+                assertEquals(1001, out.getTensorData(0).capacity());
+
+                Thread.sleep(30);
+            }
+        } catch (Exception e) {
+            fail();
+        }
+    }
+
+    @Test
     public void testInvokeTimeout() {
         TensorsInfo info = mSingle.getInputInfo();
 

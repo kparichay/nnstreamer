@@ -124,7 +124,9 @@ You can download these files from [nnsuite testcases repository](https://github.
 
 ```
 # You must put the below model and label files in the internal storage of your Android target device.
+# These files are available in $NNSTREAMER\_ROOT/tests/test\_models
 {INTERNAL_STORAGE}/nnstreamer/test/mobilenet_v1_1.0_224_quant.tflite
+{INTERNAL_STORAGE}/nnstreamer/test/add.tflite
 {INTERNAL_STORAGE}/nnstreamer/test/labels.txt
 {INTERNAL_STORAGE}/nnstreamer/test/orange.png
 ```
