@@ -251,6 +251,85 @@ TEST (nnstreamer_nnfw_runtime_raw_functions, invoke)
 }
 
 /**
+ * @brief Get input/output dimensions with nnfw subplugin
+ */
+TEST (nnstreamer_nnfw_runtime_raw_functions, get_dimension_fails)
+{
+  int ret;
+  void *data = NULL;
+  GstTensorsInfo info, res;
+  gchar *model_file;
+
+  const gchar *root_path = g_getenv ("NNSTREAMER_BUILD_ROOT_PATH");
+  /* supposed to run test in build directory */
+  if (root_path == NULL)
+    root_path = "..";
+
+  /* Model does not exist. */
+  model_file = g_build_filename (root_path, "tests", "test_models", "models",
+      "text_classification.tflite", NULL);
+  ASSERT_TRUE (model_file != nullptr);
+
+  const gchar *model_files[] = {
+    model_file, NULL,
+  };
+  GstTensorFilterProperties prop = {
+    .fwname = "nnfw",
+    .fw_opened = 0,
+    .model_files = model_files,
+    .num_models = 1,
+  };
+
+  const GstTensorFilterFramework *sp = nnstreamer_filter_find ("nnfw");
+  EXPECT_NE (sp, (void *) NULL);
+
+  /** get input/output dimension without open */
+  ret = sp->getInputDimension (&prop, &data, &res);
+  EXPECT_NE (ret, 0);
+  ret = sp->getOutputDimension (&prop, &data, &res);
+  EXPECT_NE (ret, 0);
+
+  ret = sp->open (&prop, &data);
+  EXPECT_EQ (ret, 0);
+
+  info.num_tensors = 1;
+  info.info[0].type = _NNS_FLOAT32;
+  info.info[0].dimension[0] = 256;
+  info.info[0].dimension[1] = 1;
+  info.info[0].dimension[2] = 1;
+  info.info[0].dimension[3] = 1;
+
+  /** get input/output dimension successfully */
+  ret = sp->getInputDimension (&prop, &data, NULL);
+  EXPECT_NE (ret, 0);
+  ret = sp->getInputDimension (&prop, &data, &res);
+  EXPECT_EQ (ret, 0);
+
+  EXPECT_EQ (res.num_tensors, info.num_tensors);
+  EXPECT_EQ (res.info[0].type, info.info[0].type);
+  EXPECT_EQ (res.info[0].dimension[0], info.info[0].dimension[0]);
+  EXPECT_EQ (res.info[0].dimension[1], info.info[0].dimension[1]);
+  EXPECT_EQ (res.info[0].dimension[2], info.info[0].dimension[2]);
+  EXPECT_EQ (res.info[0].dimension[3], info.info[0].dimension[3]);
+
+  ret = sp->getOutputDimension (&prop, &data, NULL);
+  EXPECT_NE (ret, 0);
+  ret = sp->getOutputDimension (&prop, &data, &res);
+  EXPECT_EQ (ret, 0);
+
+  info.info[0].dimension[0] = 2;
+  EXPECT_EQ (res.num_tensors, info.num_tensors);
+  EXPECT_EQ (res.info[0].type, info.info[0].type);
+  EXPECT_EQ (res.info[0].dimension[0], info.info[0].dimension[0]);
+  EXPECT_EQ (res.info[0].dimension[1], info.info[0].dimension[1]);
+  EXPECT_EQ (res.info[0].dimension[2], info.info[0].dimension[2]);
+  EXPECT_EQ (res.info[0].dimension[3], info.info[0].dimension[3]);
+
+  sp->close (&prop, &data);
+  g_free (model_file);
+}
+
+/**
  * @brief Main gtest
  */
 int

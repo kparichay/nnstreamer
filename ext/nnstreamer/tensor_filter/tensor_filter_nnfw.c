@@ -255,7 +255,7 @@ nnfw_tensors_info_get (const nnfw_pdata *pdata, const gboolean is_input,
   NNFW_STATUS status;
   struct nnfw_tensorinfo nnfw_info_t;
   int err;
-  guint idx;
+  guint idx, ii;
 
   g_return_val_if_fail (info != NULL, -EINVAL);
   g_return_val_if_fail (pdata != NULL, -EINVAL);
@@ -280,6 +280,9 @@ nnfw_tensors_info_get (const nnfw_pdata *pdata, const gboolean is_input,
       status = nnfw_output_tensorinfo (pdata->session, idx, &nnfw_info_t);
     if (status != NNFW_STATUS_NO_ERROR)
       return -EINVAL;
+
+    for (ii = 0; ii < nnfw_info_t.rank; ii ++)
+      g_warning ("obtained dim = %d\n", nnfw_info_t.dims[ii]);
 
     err = nnfw_tensor_info_copy (&nnfw_info_t, &info->info[idx]);
     if (err < 0)
