@@ -4,17 +4,31 @@ tizen_apptest_deps = [
   glib_dep
 ]
 
-unittest_tizen_capi = executable('unittest_tizen_capi',
-  'unittest_tizen_capi.cpp',
+unittest_tizen_pipeline = executable('unittest_tizen_pipeline',
+  'unittest_tizen_pipeline.cpp',
   dependencies: [tizen_apptest_deps],
   install: get_option('install-test'),
   install_dir: unittest_install_dir
 )
-test('unittest_tizen_capi', unittest_tizen_capi, args: ['--gst-plugin-path=../..'])
+test('unittest_tizen_pipeline', unittest_tizen_pipeline, args: ['--gst-plugin-path=../..'])
 
+unittest_tizen_util = executable('unittest_tizen_util',
+  'unittest_tizen_util.cpp',
+  dependencies: [tizen_apptest_deps],
+  install: get_option('install-test'),
+  install_dir: unittest_install_dir
+)
+test('unittest_tizen_util', unittest_tizen_util, args: ['--gst-plugin-path=../..'])
+
+unittest_tizen_single = executable('unittest_tizen_single',
+  'unittest_tizen_single.cpp',
+  dependencies: [tizen_apptest_deps],
+  install: get_option('install-test'),
+  install_dir: unittest_install_dir
+)
+test('unittest_tizen_single', unittest_tizen_single, args: ['--gst-plugin-path=../..'])
 
 if get_option('enable-tizen-sensor')
-
   unittest_sensor_helper = shared_library('capi-system-sensor',
     ['dummy_sensor.c'],
     dependencies: [glib_dep],

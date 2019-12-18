@@ -300,7 +300,9 @@ export NNSTREAMER_DECODERS=$(pwd)/ext/nnstreamer/tensor_decoder
     ./tests/unittest_sink --gst-plugin-path=. --gtest_output="xml:unittest_sink.xml"
     ./tests/unittest_plugins --gst-plugin-path=. --gtest_output="xml:unittest_plugins.xml"
     ./tests/unittest_src_iio --gst-plugin-path=. --gtest_output="xml:unittest_src_iio.xml"
-    ./tests/tizen_capi/unittest_tizen_capi --gst-plugin-path=. --gtest_output="xml:unittest_tizen_capi.xml"
+    ./tests/tizen_capi/unittest_tizen_pipeline --gst-plugin-path=. --gtest_output="xml:unittest_tizen_pipeline.xml"
+    ./tests/tizen_capi/unittest_tizen_util --gst-plugin-path=. --gtest_output="xml:unittest_tizen_util.xml"
+    ./tests/tizen_capi/unittest_tizen_single --gst-plugin-path=. --gtest_output="xml:unittest_tizen_single.xml"
 %endif
 %if %{with tizen}
     ln -s ext/nnstreamer/tensor_source/*.so .
