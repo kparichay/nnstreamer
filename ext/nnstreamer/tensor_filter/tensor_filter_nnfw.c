@@ -95,8 +95,10 @@ static int nnfw_tensor_type_from_gst (const tensor_type type,
 static const char *
 nnfw_get_accelerator (nnfw_pdata * pdata, const char *accelerators)
 {
+  const gchar *local_nnfw_accl_auto = nnfw_accl_auto;
+
   pdata->accelerator = parse_accl_hw (accelerators, nnfw_accl_support,
-      nnfw_accl_auto, nnfw_accl_default);
+      local_nnfw_accl_auto, nnfw_accl_default);
 
   switch (pdata->accelerator) {
     case ACCL_NPU:
