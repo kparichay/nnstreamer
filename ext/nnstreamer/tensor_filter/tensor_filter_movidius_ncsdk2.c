@@ -425,10 +425,7 @@ _mvncsdk2_getOutputDim (const GstTensorFilterProperties * prop,
 static int
 _mvncsdk2_checkAvailability (accl_hw hw)
 {
-  if (g_strv_contains (mvncsdk2_accl_support, get_accl_hw_str (hw)))
-    return 0;
-
-  return -ENOENT;
+  return gst_tf_fw_check_availability (mvncsdk2_accl_support, hw);
 }
 
 static gchar filter_subplugin_movidius_ncsdk2[] = "movidius-ncsdk2";

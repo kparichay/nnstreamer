@@ -945,10 +945,7 @@ py_open (const GstTensorFilterProperties * prop, void **private_data)
 static int
 py_checkAvailability (accl_hw hw)
 {
-  if (g_strv_contains (python_accl_support, get_accl_hw_str (hw)))
-    return 0;
-
-  return -ENOENT;
+  return gst_tf_fw_check_availability (python_accl_support, hw);
 }
 
 #if PY_VERSION_HEX >= 0x03000000

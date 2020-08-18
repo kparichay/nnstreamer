@@ -297,10 +297,7 @@ custom_allocateInInvoke (void **private_data)
 static int
 custom_checkAvailability (accl_hw hw)
 {
-  if (g_strv_contains (custom_accl_support, get_accl_hw_str (hw)))
-    return 0;
-
-  return -ENOENT;
+  return gst_tf_fw_check_availability (custom_accl_support, hw);
 }
 
 static gchar filter_subplugin_custom[] = "custom";

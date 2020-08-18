@@ -537,6 +537,14 @@ typedef struct {
 extern accl_hw parse_accl_hw_fill (parse_accl_args accl_args);
 
 /**
+ * @brief Default implementation for checking if the provided hardware accelerator is supported.
+ * @param[in] supported_accelerators accelerators supported by the framework
+ * @param[in] hw backend accelerator hardware
+ * @return 0 if supported. -errno if not supported.
+ */
+extern int gst_tf_fw_check_availability (const char ** supported_accelerators, accl_hw hw);
+
+/**
  * @brief workaround to provide default arguments
  */
 #define parse_accl_hw(...) parse_accl_hw_fill((parse_accl_args){__VA_ARGS__})

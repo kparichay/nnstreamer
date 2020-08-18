@@ -634,10 +634,7 @@ ov_open (const GstTensorFilterProperties * prop, void **private_data)
 static int
 ov_checkAvailability (accl_hw hw)
 {
-  if (g_strv_contains (openvino_accl_support, get_accl_hw_str (hw)))
-    return 0;
-
-  return -ENOENT;
+  return gst_tf_fw_check_availability (openvino_accl_support, hw);
 }
 
 static gchar filter_subplugin_openvino[] = "openvino";

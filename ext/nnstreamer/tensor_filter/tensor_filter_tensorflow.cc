@@ -752,10 +752,7 @@ tf_destroyNotify (void **private_data, void *data)
 static int
 tf_checkAvailability (accl_hw hw)
 {
-  if (g_strv_contains (tf_accl_support, get_accl_hw_str (hw)))
-    return 0;
-
-  return -ENOENT;
+  return gst_tf_fw_check_availability (tf_accl_support, hw);
 }
 
 static gchar filter_subplugin_tensorflow[] = "tensorflow";

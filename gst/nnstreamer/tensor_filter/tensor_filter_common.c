@@ -2265,6 +2265,27 @@ parse_accl_hw_fill (parse_accl_args accl_args)
 }
 
 /**
+ * @brief Default implementation for checking if the provided hardware accelerator is supported.
+ */
+int
+gst_tf_fw_check_availability (const char ** supported_accelerators, accl_hw hw)
+{
+  int ret = -EINVAL;
+  const gchar **filtered_accl;
+
+  filtered_accl = filter_supported_accelerators (supported_accelerators);
+  if (!filtered_accl) {
+    return -EINVAL;
+  }
+
+  if (g_strv_contains (filtered_accl, get_accl_hw_str (hw)))
+    ret = 0;
+
+  g_free (filtered_accl);
+  return ret;
+}
+
+/**
  * @brief to get and register hardware accelerator backend enum
  */
 static GType
@@ -2316,6 +2337,8 @@ gst_tensor_filter_check_hw_availability (const GstTensorFilterFramework * fw,
   /** Only check for specific HW, DEFAULT/AUTO are always supported */
   if (hw == ACCL_AUTO || hw == ACCL_DEFAULT) {
     available = TRUE;
+  } else if (runtime_check_supported_accelerator (get_accl_hw_str (hw))) {
+    available = FALSE;
   } else if (GST_TF_FW_V0 (fw) &&
       (!fw->checkAvailability || fw->checkAvailability (hw) == 0)) {
     available = TRUE;

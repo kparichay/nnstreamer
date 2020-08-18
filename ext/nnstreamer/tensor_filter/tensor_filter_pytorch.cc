@@ -670,10 +670,7 @@ torch_getOutputDim (const GstTensorFilterProperties * prop,
 static int
 torch_checkAvailability (accl_hw hw)
 {
-  if (g_strv_contains (torch_accl_support, get_accl_hw_str (hw)))
-    return 0;
-
-  return -ENOENT;
+  return gst_tf_fw_check_availability (torch_accl_support, hw);
 }
 
 static gchar filter_subplugin_pytorch[] = "pytorch";

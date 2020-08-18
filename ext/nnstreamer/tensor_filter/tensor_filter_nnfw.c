@@ -687,10 +687,7 @@ nnfw_invoke (const GstTensorFilterProperties * prop,
 static int
 nnfw_checkAvailability (accl_hw hw)
 {
-  if (g_strv_contains (nnfw_accl_support, get_accl_hw_str (hw)))
-    return 0;
-
-  return -ENOENT;
+  return gst_tf_fw_check_availability (nnfw_accl_support, hw);
 }
 
 static gchar filter_subplugin_nnfw[] = "nnfw";

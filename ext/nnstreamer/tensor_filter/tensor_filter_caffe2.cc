@@ -585,10 +585,7 @@ caffe2_destroyNotify (void **private_data, void *data)
 static int
 caffe2_checkAvailability (accl_hw hw)
 {
-  if (g_strv_contains (caffe2_accl_support, get_accl_hw_str (hw)))
-    return 0;
-
-  return -ENOENT;
+  return gst_tf_fw_check_availability (caffe2_accl_support, hw);
 }
 
 static gchar filter_subplugin_caffe2[] = "caffe2";

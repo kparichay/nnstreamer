@@ -729,10 +729,7 @@ armnn_getOutputDim (const GstTensorFilterProperties * prop,
 static int
 armnn_checkAvailability (accl_hw hw)
 {
-  if (g_strv_contains (armnn_accl_support, get_accl_hw_str (hw)))
-    return 0;
-
-  return -ENOENT;
+  return gst_tf_fw_check_availability (armnn_accl_support, hw);
 }
 
 static gchar filter_subplugin_armnn[] = "armnn";
